@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 
-public class Pause : MonoBehaviour
+public class PauseMenuScript : MonoBehaviour
 {
     [Header("UI Menus")]
     public Canvas pauseMenuCanvas;
@@ -89,5 +89,6 @@ public class Pause : MonoBehaviour
     {
         pauseMenuCanvas.gameObject.SetActive(true);
         settingsMenuCanvas.SetActive(false);
+        EventSystem.current.SetSelectedGameObject(mainMenuOpen);
     }
 }

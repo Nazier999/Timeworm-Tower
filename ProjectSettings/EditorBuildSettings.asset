@@ -9,6 +9,10 @@ EditorBuildSettings:
     path: Assets/Scenes/MainMenu.unity
     guid: 207fe41a2da7bc34c92221d1b3f8a31a
   - enabled: 1
+<<<<<<< Updated upstream
     path: Assets/Scenes/Controls.unity
+=======
+    path: Assets/Scenes/SampleScene.unity
+>>>>>>> Stashed changes
     guid: 8c9cfa26abfee488c85f1582747f6a02
   m_configObjects: {}
