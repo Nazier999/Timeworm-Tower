@@ -5,6 +5,9 @@ using UnityEngine.InputSystem;
 
 public class PlayerMovementScript : MonoBehaviour
 {
+    //lilly is fucking gay
+    public bool gay = true;
+
     public Rigidbody2D rb;
     public Transform groundCheck;
     public LayerMask groundLayer;
