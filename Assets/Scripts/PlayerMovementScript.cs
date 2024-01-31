@@ -5,9 +5,6 @@ using UnityEngine.InputSystem;
 
 public class PlayerMovementScript : MonoBehaviour
 {
-    //lilly is fucking gay
-    public bool gay = true;
-
     public Rigidbody2D rb;
     public Transform groundCheck;
     public LayerMask groundLayer;
@@ -57,6 +54,27 @@ public class PlayerMovementScript : MonoBehaviour
     // Double jump variables
     private int remainingJumps;
     public int maxJumps = 2; // Adjust this value as needed
+    private bool canDoubleJump = true;
+
+    //ground attack
+    private bool isAttacking = false;
+    public Transform attackPoint;
+    public float attackRange = 0.5f;
+    public LayerMask enemyLayer;
+    public float attackPower;
+
+    // Air Attack
+    private Vector2 airAttackDir;
+    public float airAttackPower = 16f; // Adjust this value as needed
+    //private bool isAirAttacking;
+   // private bool canAirAttack = true;
+
+    // Dash
+    private bool isDashing;
+    public float dashPower = 20f;
+    public float dashDuration = 0.5f; // Adjust this value as needed
+    private bool canDash = true;
+    private Vector2 dashDirection;
 
     void Awake()
     {
@@ -67,6 +85,8 @@ public class PlayerMovementScript : MonoBehaviour
 
     private void Update()
     {
+        
+
         if (IsGrounded())
         {
             // Reset remaining jumps when on the ground
@@ -98,6 +118,12 @@ public class PlayerMovementScript : MonoBehaviour
         if (jumpBufferCounter > 0)
         {
             jumpBufferCounter -= Time.deltaTime;
+        }
+
+        // Check for dash input
+        if (isDashing && canDash)
+        {
+            StartCoroutine(Dash());
         }
     }
 
@@ -149,7 +175,29 @@ public class PlayerMovementScript : MonoBehaviour
         // Wall jump
         if (ctx.performed && isWallSliding)
         {
+            GetComponent<HealthAndStamina>().TakeStamina(20);
             WallJump();
+        }
+
+        // Double jump
+        if (ctx.started && (coyoteTimeCounter > 0f || (remainingJumps > 0 && canDoubleJump) || jumpBufferCounter > 0))
+        {
+           
+            if (IsGrounded())
+            {
+                JumpStart(jumpingPower * 0.8f);
+            }
+            else if (remainingJumps > 0 && canDoubleJump)
+            {
+                GetComponent<HealthAndStamina>().TakeStamina(30);
+                JumpStart(jumpingPower * 0.8f);
+                canDoubleJump = false; // Disable double jump until grounded again
+            }
+
+            if(GetComponent<HealthAndStamina>().stamAmount <= 29)
+            {
+                canDoubleJump = false;
+            }
         }
 
         // If player stops hovering
@@ -158,6 +206,8 @@ public class PlayerMovementScript : MonoBehaviour
             StopHover();
             RestoreOriginalGravityScale(); // Restore the original gravity scale.
         }
+
+        
     }
 
     private void JumpStart(float jumpVelocity)
@@ -186,7 +236,9 @@ public class PlayerMovementScript : MonoBehaviour
             StartHover();
             rb.gravityScale = 0.5f;
         }
+
     }
+
 
     private bool IsGrounded()
     {
@@ -195,6 +247,7 @@ public class PlayerMovementScript : MonoBehaviour
 
     private bool IsWalled()
     {
+        
         return Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer);
     }
 
@@ -204,10 +257,17 @@ public class PlayerMovementScript : MonoBehaviour
         if (IsWalled() && !IsGrounded() && horizontal != 0f)
         {
             isWallSliding = true;
+            //take stamina
+            GetComponent<HealthAndStamina>().stamAmount -= 1f * Time.deltaTime;
             rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y - 1f);
             rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -wallSlidingSpeed, float.MaxValue));
         }
         else
+        {
+            isWallSliding = false;
+        }
+
+        if (GetComponent<HealthAndStamina>().stamAmount <= 0)
         {
             isWallSliding = false;
         }
@@ -266,6 +326,7 @@ public class PlayerMovementScript : MonoBehaviour
     {
         // Read input for horizontal movement
         horizontal = ctx.ReadValue<Vector2>().x;
+        Debug.Log("Horizontal: " + horizontal);
     }
 
     private void Hover()
@@ -273,12 +334,18 @@ public class PlayerMovementScript : MonoBehaviour
         // Apply hover force if hovering
         if (isHovering)
         {
+            GetComponent<HealthAndStamina>().stamAmount -= 10f * Time.deltaTime;
             // Preserve horizontal movement while hovering
             rb.velocity = new Vector2(horizontal * speed, -hoverForce);
         }
         else
         {
             StopHover();
+        }
+
+        if(GetComponent<HealthAndStamina>().stamAmount <= 0)
+        {
+            isHovering = false;
         }
     }
 
@@ -298,5 +365,77 @@ public class PlayerMovementScript : MonoBehaviour
     {
         // Restore the original gravity scale
         rb.gravityScale = originalGravityScale;
+    }
+
+    public void GroundAttack(InputAction.CallbackContext ctx)
+    {
+        if (ctx.performed && IsGrounded())
+        {
+            isAttacking = true;
+
+            if(isAttacking == true)
+            {
+                Debug.Log("attacking");
+                //check for enemy
+                Collider2D[] hitEnemies = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, enemyLayer);
+
+                //deal damage
+                foreach (Collider2D enemy in hitEnemies)
+                {
+                    Debug.Log("hit");
+                }
+                GroundAttackCooldown();
+            }
+            else
+            {
+                //do nothing
+            }
+        }
+    }
+
+    public void AirAttack(InputAction.CallbackContext ctx)
+    {
+        if (ctx.started)
+        {
+            isDashing = true;
+            dashDirection = new Vector2(horizontal, 0f);
+            if (dashDirection == Vector2.zero)
+            {
+                dashDirection = new Vector2(transform.localScale.x, 0f);
+            }
+        }
+        else if (ctx.canceled)
+        {
+            isDashing = false;
+        }
+    }
+
+    IEnumerator Dash()
+    {
+        canDash = false;
+        float dashTimer = 0f;
+
+        while (dashTimer < dashDuration)
+        {
+            rb.velocity = new Vector2(dashDirection.normalized.x * dashPower, rb.velocity.y);
+            dashTimer += Time.deltaTime;
+            yield return null;
+        }
+
+        rb.velocity = Vector2.zero;
+        isDashing = false;
+
+        // Add a cooldown before the player can dash again
+        yield return new WaitForSeconds(1f);
+        canDash = true;
+    }
+
+    IEnumerator GroundAttackCooldown()
+    {
+        // Wait for half a second
+        yield return new WaitForSeconds(0.5f);
+
+        // Reset the attacking state
+        isAttacking = false;
     }
 }
